@@ -155,18 +155,14 @@ int main()
                             //and actually take effect
 
                             //package state
-                            Eigen::VectorXd state;
+                            Eigen::VectorXd state(6);
                             //first 3 zeros are px, py, and psi (they are always zero given our transformation above)
                             state << 0, 0, 0, v, cte, epsi;
-
-                            cout << "Got Here Now!!!";
 
                             //compute optimized control inputs for the next time step using MPC, the returned vector will also have the
                             //x/y values for the entire predicted path to show us where the MPC was planning to take the vehicle if we
                             //were to execute all control inputs (steering, throttle) it computed
                             vector<double> optimized_control_inputs_plus_predicted_path = mpc.Solve(state, coeffs);
-
-                            cout << "Got Here Too!!!";
 
                             double steer_value;
                             double throttle_value;
@@ -217,7 +213,7 @@ int main()
 
                             //add the x and y coords for each reference trajectory point we want to lay out using the polynomial coefficients
                             //we computed earlier
-                            int num_ref_trajectory_points = 10; //number of reference trajectory points we want to plot in front of the vehicle
+                            int num_ref_trajectory_points = 25; //number of reference trajectory points we want to plot in front of the vehicle
                             int spacing_factor = 2; //each point on teh reference trajectory line should be 2 units apart (2 meters in unity - the simulator)
                             for (int i = 1; i <= num_ref_trajectory_points; i++)
                             {
