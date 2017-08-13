@@ -148,6 +148,21 @@ int main()
                             //fit a third order polynomial to the supplied way points (reference trajectory)
                             Eigen::VectorXd coeffs = polyfit(x_way_points, y_way_points, 3);
 
+                            //compensate for delay/latency, estimate 100ms (our latency estimator) in the future what the state will be to
+                            //compensate for the amount of time it takes for the actuation commands (steering and throttle) to propagate through our system
+                            //and actually take effect
+                            double latency = 0.1; //predict state in 100ms
+                            double Lf = 2.67; //distance between the front of the vehicle and its center of gravity
+                            double delta = j[1]["steering_angle"]; //current steering angle of vehicle from simulator
+                            double acceleration = j[1]["throttle"]; //current acceleration of vehicle from simulator
+                            //given our transformations above, px, py, and psi will be zero
+                            px = py = psi = 0;
+                            //build latency into kinematic equations before sending to solver
+                            px = px + v * cos(0) * latency;
+                            py = py + v * sin(0) * latency; //this will always be zero given sin(0) = 0
+                            psi = psi - (v / Lf) * delta * latency;
+                            v = v + acceleration * latency;
+
                             //compute cte
                             //this would be polyeval(coeffs, px) - py, but since we've the transformation, px and py are always zero
                             double cte = polyeval(coeffs, 0);
@@ -158,14 +173,13 @@ int main()
                             //to the below:
                             double epsi = -atan(coeffs[1]);
 
-                            //deal with delay/latency, estimate 100ms (our latency estimator) in the future what the state will be to compensate for the
-                            //amount of time it takes for the actuation commands (steering and throttle) to propagate through our system
-                            //and actually take effect
+                            //adjust cte and epsi to compensate for latency as well
+                            cte = cte + v * sin(epsi) * latency;
+                            epsi = epsi + (v / Lf) * delta * latency;
 
                             //package state
                             Eigen::VectorXd state(6);
-                            //first 3 zeros are px, py, and psi (they are always zero given our transformation above)
-                            state << 0, 0, 0, v, cte, epsi;
+                            state << px, py, psi, v, cte, epsi;
 
                             //compute optimized control inputs for the next time step using MPC, the returned vector will also have the
                             //x/y values for the entire predicted path to show us where the MPC was planning to take the vehicle if we
@@ -174,7 +188,6 @@ int main()
 
                             double steer_value;
                             double throttle_value;
-                            double Lf = 2.67;
 
                             //extract control inputs
                             steer_value = optimized_control_inputs_plus_predicted_path[0] / (deg2rad(25) * Lf);
@@ -248,7 +261,7 @@ int main()
                             // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
                             // SUBMITTING.
 
-                            //this_thread::sleep_for(chrono::milliseconds(100));
+                            this_thread::sleep_for(chrono::milliseconds(100));
 
                             ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
                         }

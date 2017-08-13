@@ -72,7 +72,7 @@ class FG_eval
             // Any additions to the cost should be added to `fg[0]`.
             fg[0] = 0;
 
-            //establish weights to pay more attention to cte and epsi than v
+            //establish weights to pay more attention to those parameters
             double weight = 2000;
 
             // The part of the cost based on the reference state.
@@ -86,14 +86,14 @@ class FG_eval
             // Minimize the use of actuators.
             for (int t = 0; t < N - 1; t++)
             {
-                fg[0] += 5 * CppAD::pow(vars[delta_start + t], 2);
+                fg[0] += 2000 * CppAD::pow(vars[delta_start + t], 2);
                 fg[0] += 5 * CppAD::pow(vars[a_start + t], 2);
             }
 
             // Minimize the value gap between sequential actuations.
             for (int t = 0; t < N - 2; t++)
             {
-                fg[0] += 200 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+                fg[0] += 1500 * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
                 fg[0] += 10 * CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
             }
 
