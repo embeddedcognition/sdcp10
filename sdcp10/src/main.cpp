@@ -89,6 +89,7 @@ int main()
                 // The 2 signifies a websocket event
                 string sdata = string(data).substr(0, length);
                 cout << sdata << endl;
+
                 if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2')
                 {
                     string s = hasData(sdata);
@@ -99,27 +100,89 @@ int main()
                         if (event == "telemetry")
                         {
                             // j[1] is the data JSON object
+
+                            //way-points (should be 6 supplied denoting reference trajectory), this is the target trajectory we fit our poly to
                             vector<double> ptsx = j[1]["ptsx"];
                             vector<double> ptsy = j[1]["ptsy"];
+
+                            //x and y position of the vehicle
                             double px = j[1]["x"];
                             double py = j[1]["y"];
+
+                            //angle of the vehicle (orientation)
                             double psi = j[1]["psi"];
+
+                            //position and orientation above constitute the vehicle's pose
+
+                            //speed of the vehicle
                             double v = j[1]["speed"];
 
-                            /*
-                             * TODO: Calculate steering angle and throttle using MPC.
-                             *
-                             * Both are in between [-1, 1].
-                             *
-                             */
+                            //conduct translation and rotation of all way points to simplify future steps (such as cte computation)
+                            //the way points are being transformed to the vehicle's perspective
+                            for (int i = 0; i < ptsx.size(); i++)
+                            {
+                                //this allows us to center the car at the origin (x = 0, y = 0)
+                                //translate (center the coordinates)
+                                double translated_x = ptsx[i] - px;
+                                double translated_y = ptsy[i] - py;
+                                //this allows us to make psi zero
+                                //rotate (counter-clockwise, i.e., psi is negative)
+                                ptsx[i] = (translated_x * cos(-psi)) - (translated_y * sin(-psi));
+                                ptsy[i] = (translated_x * sin(-psi)) + (translated_y * cos(-psi));
+                            }
+
+                            //fit a polynomial to the supplied way points (reference trajectory)
+
+                            //convert vectors to eigen vectors so we can supply them to polyfit
+                            Eigen::Map<Eigen::VectorXd> x_way_points(ptsx.data(), ptsx.size());
+                            Eigen::Map<Eigen::VectorXd> y_way_points(ptsy.data(), ptsy.size());
+
+                            //fit a third order polynomial to the supplied way points (reference trajectory)
+                            Eigen::VectorXd coeffs = polyfit(x_way_points, y_way_points, 3);
+
+                            //compute cte
+                            //this would be polyeval(coeffs, px) - py, but since we've the transformation, px and py are always zero
+                            double cte = polyeval(coeffs, 0);
+
+                            //compute epsi
+                            //this would be psi - desired orientation (i.e., arctan(f'(px)), but since px, py, and psi are always zero it is
+                            //greatly simplified, from: psi - atan(coeffs[1] + (2 * px * coeffs[2]) + 3 * coeffs[3] * pow(px, 2)))
+                            //to the below:
+                            double epsi = -atan(coeffs[1]);
+
+                            //deal with delay/latency, estimate 100ms (our latency estimator) in the future what the state will be to compensate for the
+                            //amount of time it takes for the actuation commands (steering and throttle) to propagate through our system
+                            //and actually take effect
+
+                            //package state
+                            Eigen::VectorXd state;
+                            //first 3 zeros are px, py, and psi (they are always zero given our transformation above)
+                            state << 0, 0, 0, v, cte, epsi;
+
+                            cout << "Got Here Now!!!";
+
+                            //compute optimized control inputs for the next time step using MPC, the returned vector will also have the
+                            //x/y values for the entire predicted path to show us where the MPC was planning to take the vehicle if we
+                            //were to execute all control inputs (steering, throttle) it computed
+                            vector<double> optimized_control_inputs_plus_predicted_path = mpc.Solve(state, coeffs);
+
+                            cout << "Got Here Too!!!";
+
                             double steer_value;
                             double throttle_value;
+                            double Lf = 2.67;
+
+                            //extract control inputs
+                            steer_value = optimized_control_inputs_plus_predicted_path[0] / (deg2rad(25) * Lf);
+                            throttle_value = optimized_control_inputs_plus_predicted_path[1];
 
                             json msgJson;
                             // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
                             // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
                             msgJson["steering_angle"] = steer_value;
                             msgJson["throttle"] = throttle_value;
+
+                            //GREEN PREDICTED TRAJECTORY LINE
 
                             //Display the MPC predicted trajectory
                             vector<double> mpc_x_vals;
@@ -128,22 +191,49 @@ int main()
                             //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
                             // the points in the simulator are connected by a Green line
 
+                            //skip the optimized control inputs (first 2 values) and push the predicted x/y values so we can paint the green path
+                            for (int i = 2; i < optimized_control_inputs_plus_predicted_path.size(); i++)
+                            {
+                                //x values (even)
+                                if ((i % 2) == 0)
+                                {
+                                    mpc_x_vals.push_back(optimized_control_inputs_plus_predicted_path[i]);
+                                }
+                                //y values (odd)
+                                else
+                                {
+                                    mpc_y_vals.push_back(optimized_control_inputs_plus_predicted_path[i]);
+                                }
+                            }
+
                             msgJson["mpc_x"] = mpc_x_vals;
                             msgJson["mpc_y"] = mpc_y_vals;
+
+                            //YELOW REFERENCE TRAJECTORY LINE
 
                             //Display the waypoints/reference line
                             vector<double> next_x_vals;
                             vector<double> next_y_vals;
 
-                            //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
-                            // the points in the simulator are connected by a Yellow line
+                            //add the x and y coords for each reference trajectory point we want to lay out using the polynomial coefficients
+                            //we computed earlier
+                            int num_ref_trajectory_points = 10; //number of reference trajectory points we want to plot in front of the vehicle
+                            int spacing_factor = 2; //each point on teh reference trajectory line should be 2 units apart (2 meters in unity - the simulator)
+                            for (int i = 1; i <= num_ref_trajectory_points; i++)
+                            {
+                                //x values are spaced every 2 meters
+                                next_x_vals.push_back(i * spacing_factor);
+                                //y values are computed using the polynomial coefficients, "i * spacing_factor" is where the polynomial is evaluated at
+                                //i.e., f(i * spacing_factor) or said differently f(x)
+                                next_y_vals.push_back(polyeval(coeffs, i * spacing_factor));
+                            }
 
                             msgJson["next_x"] = next_x_vals;
                             msgJson["next_y"] = next_y_vals;
 
-
                             auto msg = "42[\"steer\"," + msgJson.dump() + "]";
                             std::cout << msg << std::endl;
+
                             // Latency
                             // The purpose is to mimic real driving conditions where
                             // the car does actuate the commands instantly.
@@ -153,7 +243,9 @@ int main()
                             //
                             // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
                             // SUBMITTING.
-                            this_thread::sleep_for(chrono::milliseconds(100));
+
+                            //this_thread::sleep_for(chrono::milliseconds(100));
+
                             ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
                         }
                     }
