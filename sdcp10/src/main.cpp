@@ -1,3 +1,11 @@
+/*
+############################################################
+## AUTHOR: James Beasley                                  ##
+## DATE: August 13, 2017                                  ##
+## UDACITY SDC: Project 10 (Model Predictive Controllers) ##
+############################################################
+*/
+
 #include <math.h>
 #include <uWS/uWS.h>
 #include <chrono>
