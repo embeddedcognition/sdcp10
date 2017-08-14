@@ -9,6 +9,12 @@ Reflection on the Model Predictive Controllers project:
 
 Model:
 
+In general my model follows the one layed out in the lectures, quiz, and the Q&A. The cost function and solver are both patterned after what I saw in
+the quiz and what I saw in the Q&A. Lines 169-310 of MPC.cpp detail the solver function that takes the state and the reference trajectory coefficients and starts
+defining the lower and upper bounds for x, y, psi, v, cte, epsi (which it leaves wide open, as we don't want to constrain them) and then moves on to setting
+the bounds on the steering angle at -25 to 25 and the acceleration at -1 to 1. As described in the Q&A, I use the initial state as a constraint to give the
+solver a place to start from and aid quick optimization. In FG_eval (lines 50-161 of MPC.cpp) the cost function focuses on ensuring cte and epsi are weighted
+highly (you see that I multiply them by 2000 as denoted in the Q&A).  
 
 Timestep length & elapsed duration (N & dt):
 
@@ -25,19 +31,30 @@ dt = 0.05
 
 Polynomial Fitting and MPC Preprocessing:
 
+To construct a polynomial to serve as a reference trajectory to the MPC, I used the waypoints that were provided by the simulator with each iteration. As
+discussed in the Q&A and the discussion forums, it made sense to preprocess the waypoints before I used them to fit a polynomial. the preprocessing I did
+was to modify them from map coordinates to vehicle coordinates (i.e, transform them to the vehicles frame of reference), much like we did for the particle 
+filter project. This effectively centered the vehicle at the origin and drove it down the x-axis, which greatly simplified the work of computing the cross
+track error (though it was an approximation vs. true to life). Lines 128-149 of main.cpp describe this in detail. After I transformed the waypoints, I 
+converted them from vectors to Eigen vectors so that they could be supplied to the polyfit function (lines 59-84) to fit them to a third-order polynomial.  
+
 Model Predictive Control with Latency:
 
 To deal with latency, I decided to follow the path I had seen in the Q&A and discussion forums, which was to use the kinematic equations to
 predict the state 100ms in the future before sending it to the solver. That way when it finally propagated through the system and the actuations
 were applied (steering and throttle) the vehicle would be making the appropriate decision for that future time.
 
-Lines 151-182 of main.cpp detail my approach for dealing with latency.  
+Lines 151-182 of main.cpp detail my approach for dealing with latency. I first retrieved the delta (steering angle) and acceleration values from the
+simulator payload and then wnet to work plugging the latency into the kinematic equations in place of dt. Instead of supplying zero for px and psi
+as I had done before I accounted for latency in the model, I instead supplied the px and psi values that compensated for a 100ms delay. I did the same
+with the velocity, cte, and epsi values as well. 
 
 Wrap-up:
 
 To close, I wish I had more time to figure out why the points jump around so much at a few parts of the track. It looks like the transformed way points 
 are what is jumping around and in turn that freaks out the prediction algorithm. Again, not sure why this happens but would like to dig into it a bit more
-as I've not seen that smae behavior in the other YouTube videos I've watched of other student's submissions. 
+as I've not seen that smae behavior in the other YouTube videos I've watched of other student's submissions. Maybe you can provide me some pointers on
+what you think it may be.
 
 All in all, I learned a lot and am really excited to be finished with term 2! Really looking forward to term 3 and completing the program by the end of the 
 year.

@@ -164,8 +164,8 @@ int main()
                             v = v + acceleration * latency;
 
                             //compute cte
-                            //this would be polyeval(coeffs, px) - py, but since we've the transformation, px and py are always zero
-                            double cte = polyeval(coeffs, 0);
+                            //this would be polyeval(coeffs, px) - py, but py is still zero given that sin(0) = 0 in kinematic equation
+                            double cte = polyeval(coeffs, px);
 
                             //compute epsi
                             //this would be psi - desired orientation (i.e., arctan(f'(px)), but since px, py, and psi are always zero it is
