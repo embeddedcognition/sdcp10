@@ -1,24 +1,39 @@
-###########################################################
-## AUTHOR: James Beasley                                 ##
-## DATE: August 13, 2017                                 ##
-## UDACITY SDC: Project 9 (Model Predictive Controllers) ##
-## REFLECTION                                            ##
-###########################################################
+############################################################
+## AUTHOR: James Beasley                                  ##
+## DATE: August 13, 2017                                  ##
+## UDACITY SDC: Project 10 (Model Predictive Controllers) ##
+## REFLECTION                                             ##
+############################################################
 
 Reflection on the Model Predictive Controllers project:
 
 Model:
 
-In general my model follows the one layed out in the lectures, quiz, and the Q&A. The cost function and solver are both patterned after what I saw in
-the quiz and what I saw in the Q&A. Lines 169-310 of MPC.cpp detail the solver function that takes the state and the reference trajectory coefficients and starts
-defining the lower and upper bounds for x, y, psi, v, cte, epsi (which it leaves wide open, as we don't want to constrain them) and then moves on to setting
-the bounds on the steering angle at -25 to 25 and the acceleration at -1 to 1. As described in the Q&A, I use the initial state as a constraint to give the
-solver a place to start from and aid quick optimization. In FG_eval (lines 50-161 of MPC.cpp) the cost function focuses on ensuring cte and epsi are weighted
-highly (you see that I multiply them by 2000 as denoted in the Q&A).  
+In general, my model follows the one laid out in the lectures, quiz, and the Q&A. I ended up keeping the speed of the vehicle pretty low (40 mph), as there
+were parts of the track where the vehicle has glitches (where the waypoints are lost or something) and I knew this would be dangerous (for passengers) at
+higher speeds. 
+
+The cost function and solver are both patterned after what I saw in the quiz and what I saw in the Q&A. As noted in quiz, the main objective was to minimize 
+the cte, heading error, and velocity error. Lines 169-310 of MPC.cpp detail the solver function that takes the state and the reference trajectory coefficients 
+and starts defining the lower and upper bounds for x, y, psi, v, cte, epsi (which it leaves wide open, as we don't want to constrain them) and then moves on to 
+setting the bounds on the steering angle at -25 to 25 and the acceleration at -1 to 1. 
+ 
+As described in the Q&A, I used the initial state as a constraint to give the solver a place to start from and aid quick optimization. In FG_eval (lines 
+50-161 of MPC.cpp) the cost function applies weights to variables that need central focus during the optimization process. As noted before, for my model, 
+those were the cte, epsi (heading error), velocity error. Though delta (the steering angle) is very important as well :) 
+
+I leveraged the weights used in the Q&A and amplified them a bit to help smooth the steering. To help with the glitch areas mentioned above, I amped up the 
+importance of delta in the use of actuations (value of 2000) and sequential actuations (value of 1500) sections of the cost function.
+
+As described in the quiz, I also implemented the kinematic update equations as constraints for the specified horizon (N). I didn't change much here beyond the
+way that the quiz had it laid out. 
+
+After the solver is finished, I package the first set of optimized control inputs (the steering angle and the throttle setting), along with all of the predicted
+x/y points so they can be displayed in the simulator later.
 
 Timestep length & elapsed duration (N & dt):
 
-I started with the N and dt values discussed during the Q&A session (N = 10 and dt = 0.1, but quickly found that those didn't work well for me. 
+I started with the N and dt values discussed during the Q&A session (N = 10 and dt = 0.1), but quickly found that those didn't work well for me. 
 The prediction line seemed to drift a lot (as did the vehicle) and I noticed that the vehicle had to brake a lot at the turns and seemed to ride the edges 
 of the road too close for my comfort. My next change was to reduce dt to 0.05 to see if I saw improvement. This definietly improved the prediction line
 (kept it in check with the waypoint line) and also kept the vehicle in the center of the road and reduced the need for excessive braking like before.
@@ -32,32 +47,39 @@ dt = 0.05
 Polynomial Fitting and MPC Preprocessing:
 
 To construct a polynomial to serve as a reference trajectory to the MPC, I used the waypoints that were provided by the simulator with each iteration. As
-discussed in the Q&A and the discussion forums, it made sense to preprocess the waypoints before I used them to fit a polynomial. the preprocessing I did
+discussed in the Q&A and the discussion forums, it made sense to preprocess the waypoints before I used them to fit a polynomial. The preprocessing I did
 was to modify them from map coordinates to vehicle coordinates (i.e, transform them to the vehicles frame of reference), much like we did for the particle 
-filter project. This effectively centered the vehicle at the origin and drove it down the x-axis, which greatly simplified the work of computing the cross
-track error (though it was an approximation vs. true to life). Lines 128-149 of main.cpp describe this in detail. After I transformed the waypoints, I 
-converted them from vectors to Eigen vectors so that they could be supplied to the polyfit function (lines 59-84) to fit them to a third-order polynomial.  
+filter project. This effectively centered the vehicle at the origin, which greatly simplified the work of computing the cross track error (though it was 
+an approximation vs. true to life). Lines 128-149 of main.cpp describe this in detail. After I transformed the waypoints, I converted them from vectors to 
+Eigen vectors so that they could be supplied to the polyfit function (lines 59-84) to fit them to a third-order polynomial. This results in a set of
+coefficients that are used later in MPC.
+
+I preprocessed the state as well, but that is discussed in the next section, so I won't repeat it here. After the state is processed, it and the coefficients
+for the reference trajectory are sent to the solver in the MPC module. The result of the solver process is a steering angle and throttle setting that are sent
+to the vehicle's control module (the simulator) to be actuated on the vehicle. In addition, for debugging, the reference trajectory is displayed on the track
+as well as the predicted trajectory (though only the first prediction is actually carried out by the vehicle's control module). Once this is complete, the 
+process repeats itself again.   
 
 Model Predictive Control with Latency:
 
-To deal with latency, I decided to follow the path I had seen in the Q&A and discussion forums, which was to use the kinematic equations to
+To deal with latency, I decided to follow the path I had seen in the Q&A and discussion forums, which was to use the kinematic update equations to
 predict the state 100ms in the future before sending it to the solver. That way when it finally propagated through the system and the actuations
 were applied (steering and throttle) the vehicle would be making the appropriate decision for that future time.
 
 Lines 151-182 of main.cpp detail my approach for dealing with latency. I first retrieved the delta (steering angle) and acceleration values from the
-simulator payload and then wnet to work plugging the latency into the kinematic equations in place of dt. Instead of supplying zero for px and psi
+simulator payload and then went to work plugging the latency into the kinematic update equations in place of dt. Instead of supplying zero for px and psi
 as I had done before I accounted for latency in the model, I instead supplied the px and psi values that compensated for a 100ms delay. I did the same
-with the velocity, cte, and epsi values as well. 
+with the velocity, cte, and epsi values as well.  
 
 Wrap-up:
 
-To close, I wish I had more time to figure out why the points jump around so much at a few parts of the track. It looks like the transformed way points 
+To close, I wish I had more time to figure out why the points jump around (or are lost) at a few parts of the track. It looks like the transformed way points 
 are what is jumping around and in turn that freaks out the prediction algorithm. Again, not sure why this happens but would like to dig into it a bit more
-as I've not seen that smae behavior in the other YouTube videos I've watched of other student's submissions. Maybe you can provide me some pointers on
+as I've not seen that same behavior in the other YouTube videos I've watched of other student's submissions. Maybe you can provide me some pointers on
 what you think it may be.
 
-All in all, I learned a lot and am really excited to be finished with term 2! Really looking forward to term 3 and completing the program by the end of the 
-year.
+All in all, I learned a lot during this project and am really excited to be finished with term 2! Really looking forward to term 3 and completing the program by 
+the end of the year.
 
 Below is a video of the final output:
 

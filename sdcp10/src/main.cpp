@@ -158,6 +158,7 @@ int main()
                             //given our transformations above, px, py, and psi will be zero
                             px = py = psi = 0;
                             //build latency into kinematic equations before sending to solver
+                            //this section covers px, py, psi, and v...cte and epsi are adjusted further down
                             px = px + v * cos(0) * latency;
                             py = py + v * sin(0) * latency; //this will always be zero given sin(0) = 0
                             psi = psi - (v / Lf) * delta * latency;
@@ -190,6 +191,7 @@ int main()
                             double throttle_value;
 
                             //extract control inputs
+                            //ensure steering value is between -1 and 1 for the simulator
                             steer_value = optimized_control_inputs_plus_predicted_path[0] / (deg2rad(25) * Lf);
                             throttle_value = optimized_control_inputs_plus_predicted_path[1];
 
