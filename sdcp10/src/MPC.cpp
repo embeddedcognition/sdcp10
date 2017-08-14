@@ -63,7 +63,6 @@ class FG_eval
             // NOTE: You'll probably go back and forth between this function and
             // the Solver function below.
 
-
             // Cost function
             // TODO: Define the cost related the reference state and
             // any anything you think may be beneficial.
@@ -72,14 +71,12 @@ class FG_eval
             // Any additions to the cost should be added to `fg[0]`.
             fg[0] = 0;
 
-            //establish weights to pay more attention to those parameters
-            double weight = 2000;
-
+            //establish weights to pay more attention to those parameters (the numbers multiplied at the beginning of each line
             // The part of the cost based on the reference state.
             for (int t = 0; t < N; t++)
             {
-                fg[0] += weight * CppAD::pow(vars[cte_start + t] - ref_cte, 2);
-                fg[0] += weight * CppAD::pow(vars[epsi_start + t] - ref_epsi, 2);
+                fg[0] += 2000 * CppAD::pow(vars[cte_start + t] - ref_cte, 2);
+                fg[0] += 2000 * CppAD::pow(vars[epsi_start + t] - ref_epsi, 2);
                 fg[0] += CppAD::pow(vars[v_start + t] - ref_v, 2);
             }
 

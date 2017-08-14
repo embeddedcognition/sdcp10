@@ -1,0 +1,47 @@
+###########################################################
+## AUTHOR: James Beasley                                 ##
+## DATE: August 13, 2017                                 ##
+## UDACITY SDC: Project 9 (Model Predictive Controllers) ##
+## REFLECTION                                            ##
+###########################################################
+
+Reflection on the Model Predictive Controllers project:
+
+Model:
+
+
+Timestep length & elapsed duration (N & dt):
+
+I started with the N and dt values discussed during the Q&A session (N = 10 and dt = 0.1, but quickly found that those didn't work well for me. 
+The prediction line seemed to drift a lot (as did the vehicle) and I noticed that the vehicle had to brake a lot at the turns and seemed to ride the edges 
+of the road too close for my comfort. My next change was to reduce dt to 0.05 to see if I saw improvement. This definietly improved the prediction line
+(kept it in check with the waypoint line) and also kept the vehicle in the center of the road and reduced the need for excessive braking like before.
+I tried to reduce dt further (to 0.02), but found that the vehicle wobbled excessively, so I pushed it back to 0.05. In my testing, I found that any
+N that was less then 15 made the vehicle weave too much and I saw degradation again at values above 20, so I kept N at 15. 
+
+My final values were:
+N = 15
+dt = 0.05
+
+Polynomial Fitting and MPC Preprocessing:
+
+Model Predictive Control with Latency:
+
+To deal with latency, I decided to follow the path I had seen in the Q&A and discussion forums, which was to use the kinematic equations to
+predict the state 100ms in the future before sending it to the solver. That way when it finally propagated through the system and the actuations
+were applied (steering and throttle) the vehicle would be making the appropriate decision for that future time.
+
+Lines 151-182 of main.cpp detail my approach for dealing with latency.  
+
+Wrap-up:
+
+To close, I wish I had more time to figure out why the points jump around so much at a few parts of the track. It looks like the transformed way points 
+are what is jumping around and in turn that freaks out the prediction algorithm. Again, not sure why this happens but would like to dig into it a bit more
+as I've not seen that smae behavior in the other YouTube videos I've watched of other student's submissions. 
+
+All in all, I learned a lot and am really excited to be finished with term 2! Really looking forward to term 3 and completing the program by the end of the 
+year.
+
+Below is a video of the final output:
+
+https://www.youtube.com/watch?v=0i2bo3GofHI
